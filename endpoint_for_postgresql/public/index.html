@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Складской учет</title>
+  </head>
+  <body>
+    <h1>Добавить товар</h1>
+    <form id="createProduct">
+      <input type="text" id="createArticle" placeholder="Артикул товара" required>
+      <input type="text" id="createName" placeholder="Название товара" required>
+      <input type="number" id="createQuantityInShop" placeholder="Количество товара" required>
+      <input type="number" id="createIdShop" placeholder="ID магазина" required>
+      <button type="submit">Добавить</button>
+    </form>
+
+    <h1>Создание остатка. Увеличение и уменьшение количества.</h1>
+    <form id="remainder">
+      <input type="text" id="articleOfRemainder" placeholder="Артикул товара" required>
+      <input type="number" id="remainderShopId" placeholder="ID магазина" required>
+      <input type="number" id="remainderQuantity" placeholder="Количество товара" required>
+      <button type="submit">Изменить</button>
+    </form>
+
+    <h1>Получение остатка по фильтру.</h1>
+    <form id="getRemainder">
+      <input type="text" id="articleOfGetRemainder" placeholder="Артикул товара" required>
+      <input type="number" id="shopIdOfGetRemainder" placeholder="ID магазина" required>
+
+      <label for="selectGetRemainder">Выберите действие:</label>
+      <select id="selectGetRemainder" required>
+        <option value="inShop">Получить количество остатков на складе.</option>
+        <option value="onShelf">Получить количество остатков на полке.</option>
+        <option value="inOrder">Получить количество остатков в заказе.</option>
+      </select>
+      
+      <label for="quantityFromOfGetRemainder">От:</label>
+      <input type="number" id="quantityFromOfGetRemainder" placeholder="Минимум" required>
+      <label for="quantityToOfGetRemainder">До:</label>
+      <input type="number" id="quantityToOfGetRemainder" placeholder="Максимум" required>
+
+      <button type="submit">Получить количество.</button>
+    </form>
+    
+    <h1>Получение товара</h1>
+    <form id="issueProduct">
+      <input type="text" id="issueArticle" placeholder="Артикул товара" required>
+      <input type="number" id="issueShopId" placeholder="ID магазина" required>
+      <input type="number" id="issueQuantity" placeholder="Количество для выдачи" required>
+      <button type="submit">Выдать товар</button>
+    </form>
+
+    <div id="issueResults">
+      <h2>Результаты выдачи:</h2>
+      <p id="issueMessage"></p>
+    </div>
+
+    <h1>История действий.</h1>
+    <form id="getHistory">
+      <input type="number" id="historyShopId" placeholder="ID магазина">
+      <input type="text" id="historyArticle" placeholder="Артикул товара">
+      
+      <label for="historyDateFrom">С:</label>
+      <input type="date" id="historyDateFrom">
+      
+      <label for="historyDateTo">По:</label>
+      <input type="date" id="historyDateTo">
+
+      <button type="submit">Получить историю</button>
+    </form>
+
+
+    <div id="historyResults">
+      <h2>Результаты истории:</h2>
+      <ul id="historyList"></ul>
+    </div>
+
+    <script>
+      document.getElementById('issueProduct').addEventListener('submit', async (event) => {
+	  event.preventDefault();
+
+	  const article = document.getElementById("issueArticle").value;
+	  const shopId = parseInt(document.getElementById('issueShopId').value, 10);
+	  const quantity = parseInt(document.getElementById('issueQuantity').value, 10);
+
+	  console.log('Отправка данных на сервер:', { article, shopId, quantity });
+
+	  try {
+              const response = await fetch('/products/issue', {
+		  method: 'POST',
+		  headers: { 'Content-Type': 'application/json' },
+		  body: JSON.stringify({ article, shopId, quantity })
+              });
+
+              const contentType = response.headers.get('Content-Type');
+              if (contentType && contentType.includes('application/json')) {
+		  const data = await response.json();
+		  const issueMessage = document.getElementById('issueMessage');
+
+		  if (response.ok) {
+                      issueMessage.textContent = `Товар: ${data.product}, Получено: ${data.issuedQuantity} штук.`;
+		  } else {
+                      issueMessage.textContent = `Ошибка: ${data.error}`;
+		  }
+              } else {
+		  const text = await response.text(); // Читаем ответ как текст
+		  console.error('Неверный формат ответа:', text);
+		  document.getElementById('issueMessage').textContent = 'Ошибка при выдаче товара.';
+              }
+	  } catch (error) {
+              console.error('Ошибка при отправке данных:', error);
+              document.getElementById('issueMessage').textContent = 'Ошибка при выдаче товара.';
+	  }
+      });
+
+      document.getElementById('getHistory').addEventListener('submit', async (event) => {
+	  event.preventDefault();
+
+	  const shopId = document.getElementById("historyShopId").value;
+	  const article = document.getElementById("historyArticle").value;
+	  const dateFrom = document.getElementById("historyDateFrom").value;
+	  const dateTo = document.getElementById("historyDateTo").value;
+
+	  const url = new URL('/history', window.location.origin);
+	  if (shopId) url.searchParams.append('shopId', shopId);
+	  if (article) url.searchParams.append('article', article);
+	  if (dateFrom) url.searchParams.append('dateFrom', dateFrom);
+	  if (dateTo) url.searchParams.append('dateTo', dateTo);
+
+	  try {
+              const response = await fetch(url.toString(), {
+		  method: 'GET',
+		  headers: { 'Content-Type': 'application/json' }
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+		  const historyList = document.getElementById('historyList');
+		  historyList.innerHTML = '';
+		  data.history.forEach(item => {
+                      const li = document.createElement('li');
+                      li.textContent = `Дата: ${item.date}, Действие: ${item.action}, Детали: ${item.details}`;
+                      historyList.appendChild(li);
+		  });
+              } else {
+		  alert(`Ошибка: ${data.error}`);
+              }
+	  } catch (error) {
+              console.error('Ошибка при получении данных истории:', error);
+              alert('Ошибка при запросе истории.');
+	  }
+      });
+
+      // Получение остатка
+      document.getElementById('getRemainder').addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          const article = document.getElementById("articleOfGetRemainder").value;
+          const shopId = parseInt(document.getElementById('shopIdOfGetRemainder').value, 10);
+          const whatChange = document.getElementById('selectGetRemainder').value;
+          const minValue = parseInt(document.getElementById('quantityFromOfGetRemainder').value, 10);
+          const maxValue = parseInt(document.getElementById('quantityToOfGetRemainder').value, 10);
+
+          let urlPath;
+          if (whatChange === "onShelf") {
+              urlPath = '/products/on-shelf';
+          } else if (whatChange === "inOrder") {
+              urlPath = '/products/in-order';
+          } else if (whatChange === "inShop") {
+              urlPath = '/products/in-shop';
+          }
+
+          const url = new URL(urlPath, window.location.origin);
+          url.searchParams.append('article', article);
+          url.searchParams.append('shopId', shopId);
+          url.searchParams.append('minValue', minValue);
+          url.searchParams.append('maxValue', maxValue);
+
+          try {
+              const response = await fetch(url.toString(), { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+              const data = await response.json();
+              
+              if (response.ok) {
+		  let quantity;
+		  if (whatChange === "onShelf") {
+		      quantity = data.products[0].quantity_on_shelf;
+		  } else if (whatChange === "inOrder") {
+		      quantity = data.products[0].quantity_in_order;
+		  } else if (whatChange === "inShop") {
+		      quantity = data.products[0].quantity_in_shop;
+		  }
+
+		  alert(`Остаток: ${quantity}`);
+              } else {
+		  alert(`Ошибка: ${data.error}`);
+              }
+          } catch (error) {
+              console.error('Ошибка при отправке данных:', error);
+              alert('Ошибка при запросе количества.');
+          }
+      });
+
+      // Изменение остатка
+      document.getElementById('remainder').addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          const article = document.getElementById("articleOfRemainder").value;
+          const shopId = parseInt(document.getElementById('remainderShopId').value, 10);
+          const quantity = parseInt(document.getElementById('remainderQuantity').value, 10);
+
+          try {
+              const response = await fetch('/products', {
+		  method: 'PUT',
+		  headers: { 'Content-Type': 'application/json' },
+		  body: JSON.stringify({ article, shopId, quantity })
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+		  alert(`Количество товара изменено: ${data.product.name}`);
+              } else {
+		  alert(`Ошибка: ${data.error}`);
+              }
+          } catch (error) {
+              console.error('Ошибка при отправке данных:', error);
+              alert('Ошибка при изменении товара');
+          }
+      });
+
+      // Создание товара
+      document.getElementById('createProduct').addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          const article = document.getElementById('createArticle').value;
+          const name = document.getElementById('createName').value;
+          const createQuantityInShop = parseInt(document.getElementById('createQuantityInShop').value, 10);
+          const shopId = parseInt(document.getElementById('createIdShop').value, 10);
+
+          try {
+              const response = await fetch('/products', {
+		  method: 'POST',
+		  headers: { 'Content-Type': 'application/json' },
+		  body: JSON.stringify({ article, name, createQuantityInShop, shopId })
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+		  alert(`Товар добавлен: ${data.product.name}, ${data.product.quantity_in_shop} штук.`);
+              } else {
+		  alert(`Ошибка: ${data.error}`);
+              }
+          } catch (error) {
+              console.error('Ошибка при отправке данных:', error);
+              alert('Ошибка при добавлении товара');
+          }
+      });
+    </script>
+  </body>
+</html>

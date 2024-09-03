@@ -251,5 +251,5 @@ app.post('/products', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Сервер остатков товаров запущен на http://localhost:${PORT}`);
+    console.log(`Сервер товаров запущен на http://localhost:${PORT}`);
 });
